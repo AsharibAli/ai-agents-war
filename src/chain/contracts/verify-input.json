@@ -1,0 +1,23 @@
+{
+  "language": "Solidity",
+  "sources": {
+    "AIAgentsWar.sol": {
+      "content": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\ncontract AIAgentsWar {\n    address public owner;\n\n    struct Battle {\n        string battleId;\n        string winner;\n        string loser;\n        uint8 winnerScore;\n        uint8 loserScore;\n        string category;\n        string judgeReasoning;\n        string ipfsHash;\n        uint256 timestamp;\n    }\n\n    Battle[] public battles;\n    mapping(string => uint256) public battleIndex;\n\n    struct AgentStats {\n        uint256 wins;\n        uint256 losses;\n        uint256 totalScore;\n        uint256 battlesPlayed;\n    }\n    mapping(string => AgentStats) public agentStats;\n\n    uint256 public totalBattles;\n\n    // Leaderboard tracking\n    string[] public registeredAgents;\n    mapping(string => bool) public isRegistered;\n\n    event BattleRecorded(\n        uint256 indexed battleNumber,\n        string battleId,\n        string winner,\n        string loser,\n        uint8 winnerScore,\n        uint8 loserScore,\n        string category,\n        string ipfsHash,\n        uint256 timestamp\n    );\n\n    constructor() {\n        owner = msg.sender;\n    }\n\n    function recordBattle(\n        string calldata _battleId,\n        string calldata _winner,\n        string calldata _loser,\n        uint8 _winnerScore,\n        uint8 _loserScore,\n        string calldata _category,\n        string calldata _judgeReasoning,\n        string calldata _ipfsHash\n    ) external {\n        Battle memory b = Battle({\n            battleId: _battleId,\n            winner: _winner,\n            loser: _loser,\n            winnerScore: _winnerScore,\n            loserScore: _loserScore,\n            category: _category,\n            judgeReasoning: _judgeReasoning,\n            ipfsHash: _ipfsHash,\n            timestamp: block.timestamp\n        });\n\n        battles.push(b);\n        battleIndex[_battleId] = battles.length - 1;\n\n        // Auto-register agents for leaderboard\n        if (!isRegistered[_winner]) {\n            registeredAgents.push(_winner);\n            isRegistered[_winner] = true;\n        }\n        if (!isRegistered[_loser]) {\n            registeredAgents.push(_loser);\n            isRegistered[_loser] = true;\n        }\n\n        agentStats[_winner].wins++;\n        agentStats[_winner].totalScore += _winnerScore;\n        agentStats[_winner].battlesPlayed++;\n\n        agentStats[_loser].losses++;\n        agentStats[_loser].totalScore += _loserScore;\n        agentStats[_loser].battlesPlayed++;\n\n        totalBattles++;\n\n        emit BattleRecorded(\n            totalBattles,\n            _battleId,\n            _winner,\n            _loser,\n            _winnerScore,\n            _loserScore,\n            _category,\n            _ipfsHash,\n            block.timestamp\n        );\n    }\n\n    function getBattle(uint256 index) external view returns (Battle memory) {\n        require(index < battles.length, \"Battle does not exist\");\n        return battles[index];\n    }\n\n    function getBattleById(string calldata _battleId) external view returns (Battle memory) {\n        return battles[battleIndex[_battleId]];\n    }\n\n    function getAgentStats(string calldata _agentName) external view returns (AgentStats memory) {\n        return agentStats[_agentName];\n    }\n\n    function getRecentBattles(uint256 count) external view returns (Battle[] memory) {\n        uint256 len = battles.length;\n        if (count > len) count = len;\n        Battle[] memory recent = new Battle[](count);\n        for (uint256 i = 0; i < count; i++) {\n            recent[i] = battles[len - count + i];\n        }\n        return recent;\n    }\n\n    function getTotalBattles() external view returns (uint256) {\n        return totalBattles;\n    }\n\n    function getLeaderboard() external view returns (string[] memory agents, AgentStats[] memory stats) {\n        uint256 len = registeredAgents.length;\n        agents = new string[](len);\n        stats = new AgentStats[](len);\n        for (uint256 i = 0; i < len; i++) {\n            agents[i] = registeredAgents[i];\n            stats[i] = agentStats[registeredAgents[i]];\n        }\n        return (agents, stats);\n    }\n}\n"
+    }
+  },
+  "settings": {
+    "viaIR": true,
+    "optimizer": {
+      "enabled": true,
+      "runs": 200
+    },
+    "outputSelection": {
+      "*": {
+        "*": [
+          "abi",
+          "evm.bytecode.object"
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bun init:*)",
+      "Bash(bun add:*)",
+      "Bash(bun run start:*)",
+      "WebSearch",
+      "WebFetch(domain:platform.openai.com)",
+      "WebFetch(domain:ai.google.dev)",
+      "WebFetch(domain:developers.openai.com)",
+      "Bash(bunx tsc:*)",
+      "Bash(timeout 3 bun run:*)",
+      "Bash(npx tsc:*)",
+      "Bash(timeout 5 bun run:*)",
+      "Bash(bun -e:*)",
+      "Bash(bun run deploy:*)",
+      "Bash(node -e:*)"
+    ]
+  }
+}
