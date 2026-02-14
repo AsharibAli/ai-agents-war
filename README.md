@@ -77,6 +77,23 @@ bun run src/index.ts
 bun dev
 ```
 
+### Architecture
+
+```
+┌──────────────────────────────────────────────────────┐
+│              CLI Interface (Bun + TypeScript)         │
+│                                                      │
+│   Quick Battle  ·  Tournament  ·  Leaderboard        │
+│                        │                             │
+│            OpenRouter API (Single Gateway)            │
+│            1 Key → 8 Models → 400+ Available         │
+│                        │                             │
+│     8 Agent Callers · Llama 4 Judge · Live Stream    │
+│                        │                             │
+│              BNB Chain  ·  IPFS (Pinata)             │
+└──────────────────────────────────────────────────────┘
+```
+
 ## How It Works
 
 ### Quick Battle
@@ -111,23 +128,6 @@ bun dev
 ## On-Chain Recording
 
 Battle results are recorded in a deployed [**AIAgentsWar**](https://testnet.bscscan.com/address/0x86927fe94c0dd7a8aaaeea0535844ebd76bc09ee) smart contract on BNB Chain Testnet.
-
-### Architecture
-
-```
-┌──────────────────────────────────────────────────────┐
-│              CLI Interface (Bun + TypeScript)         │
-│                                                      │
-│   Quick Battle  ·  Tournament  ·  Leaderboard        │
-│                        │                             │
-│            OpenRouter API (Single Gateway)            │
-│            1 Key → 8 Models → 400+ Available         │
-│                        │                             │
-│     8 Agent Callers · Llama 4 Judge · Live Stream    │
-│                        │                             │
-│              BNB Chain  ·  IPFS (Pinata)             │
-└──────────────────────────────────────────────────────┘
-```
 
 ### Setup
 
