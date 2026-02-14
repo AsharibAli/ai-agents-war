@@ -1,29 +1,31 @@
-# AI Agents War
+<div align="center">
 
-A terminal-based AI battle arena where 8 AI models compete head-to-head — judged by an open-source Llama 4 model. All LLM calls go through [OpenRouter](https://openrouter.ai) — you only need **one API key**.
+![AI Agents War Main Picture](./public/ai-agents-war.png)
 
-## Models
+A CLI-based battle arena where top AI language models fight head-to-head, judged by an open-source AI, with every result recorded on BNB Chain & IPFS.
 
-### Closed-Source
+</div>
 
-| Role | Model | OpenRouter ID | Color |
-|------|-------|---------------|-------|
-| Contestant | Claude Opus 4.6 | `anthropic/claude-opus-4.6` | magenta |
-| Contestant | Grok 4.1 Fast | `x-ai/grok-4.1-fast` | red |
-| Contestant | GPT 5.2 Codex | `openai/gpt-5.2-codex` | green |
-| Contestant | Gemini 3 Pro | `google/gemini-3-pro-preview` | cyan |
+## Why Build this?
 
-### Open-Source
+There's no transparent, verifiable way to compare AI models head-to-head. Benchmarks are static. Leaderboards are self-reported. Nobody lets you watch the fight happen live.
 
-| Role | Model | OpenRouter ID | Color |
-|------|-------|---------------|-------|
-| Contestant | GLM 5 | `z-ai/glm-5` | blue |
-| Contestant | Kimi K2.5 | `moonshotai/kimi-k2.5` | yellow |
-| Contestant | DeepSeek V3.2 | `deepseek/deepseek-v3.2` | white |
-| Contestant | MiniMax M2.5 | `minimax/minimax-m2.5` | gray |
-| Judge | Meta Llama 4 Maverick | `meta-llama/llama-4-maverick` | — |
+I built a system where:
 
-OpenRouter supports 400+ models. Full catalog at https://openrouter.ai/models
+- Real models compete on the same prompt in real-time
+- An independent open-source model judges with no corporate loyalty
+- Every result is permanently stored on-chain and on IPFS
+- Anyone can verify any battle, anytime
+
+## Why Is It?
+
+AI Agents War pits 4 closed-source models against 4 open-source models in live battles across debate, coding, riddles, roasts, and strategy. Meta's Llama 4 Maverick — a neutral open-source model — judges every fight. Results are recorded on BNB Chain. Full battle data lives on IPFS.
+
+- Closed-source: Claude · Grok · GPT · Gemini
+
+- Open-source: GLM · Kimi · DeepSeek · MiniMax
+
+- Judge: Llama 4 Maverick (neutral, open-source)
 
 ## Features
 
@@ -78,6 +80,7 @@ bun dev
 ## How It Works
 
 ### Quick Battle
+
 1. Pick 2 AI agents from the roster of 8
 2. Choose a battle category (debate, code, riddle, roast, strategy) or random
 3. Choose difficulty (Easy/Medium/Hard)
@@ -90,6 +93,7 @@ bun dev
 10. Optionally export a markdown battle report
 
 ### Tournament Mode
+
 1. All 8 agents enter a single-elimination bracket
 2. Quarter-finals use Easy prompts, semis use Medium, finals use Hard
 3. Watch the ASCII bracket update as winners advance
@@ -97,6 +101,7 @@ bun dev
 5. Batch record all tournament battles on-chain
 
 ### Difficulty Tiers
+
 | Tier | K-Factor | ELO Impact |
 |------|----------|------------|
 | Easy | 16 | Low swing |
@@ -107,18 +112,21 @@ bun dev
 
 Battle results are recorded in a deployed **AIAgentsWar** smart contract on BNB Chain Testnet.
 
-### Smart Contract Architecture
+### Architecture
 
 ```
-AIAgentsWar.sol
-├── Battle struct        (battleId, winner, loser, scores, category, reasoning, ipfsHash, timestamp)
-├── battles[]            (append-only array of all battles)
-├── battleIndex          (mapping battleId → array index for lookup)
-├── agentStats           (mapping agentName → {wins, losses, totalScore, battlesPlayed})
-├── registeredAgents[]   (auto-registered agent names for leaderboard)
-├── totalBattles         (global counter)
-├── BattleRecorded event (indexed battleNumber + full battle data + ipfsHash)
-└── getLeaderboard()     (returns all agents and their stats)
+┌──────────────────────────────────────────────────────┐
+│              CLI Interface (Bun + TypeScript)         │
+│                                                      │
+│   Quick Battle  ·  Tournament  ·  Leaderboard        │
+│                        │                             │
+│            OpenRouter API (Single Gateway)            │
+│            1 Key → 8 Models → 400+ Available         │
+│                        │                             │
+│     8 Agent Callers · Llama 4 Judge · Live Stream    │
+│                        │                             │
+│              BNB Chain  ·  IPFS (Pinata)             │
+└──────────────────────────────────────────────────────┘
 ```
 
 ### Setup
