@@ -37,8 +37,7 @@ import {
   getContractAddress,
   getOnChainLeaderboard,
 } from "./chain/index.ts";
-import { isIPFSConfigured } from "./chain/ipfs.ts";
-import { requireApiKey, printKeyStatus } from "./config.ts";
+import { requireApiKey } from "./config.ts";
 import type {
   AgentName,
   BattlePrompt,
@@ -640,11 +639,6 @@ function showHistory(): void {
 
 async function main(): Promise<void> {
   showTitle();
-  printKeyStatus();
-
-  if (!isIPFSConfigured()) {
-    console.log(chalk.gray("  Set PINATA_JWT in .env for IPFS battle storage.\n"));
-  }
 
   try {
     requireApiKey();
