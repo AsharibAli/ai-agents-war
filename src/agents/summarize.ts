@@ -1,7 +1,7 @@
 import { callOpenRouter } from "./index.ts";
 import type { BattleResponse, BattleSummary } from "../types/index.ts";
 
-const SUMMARY_MODEL = "meta-llama/llama-3.1-8b-instruct";
+const SUMMARY_MODEL = "meta-llama/llama-4-maverick";
 
 const SUMMARY_SYSTEM_PROMPT =
   "You are a concise summarizer for an AI battle arena. " +
