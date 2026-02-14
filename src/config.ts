@@ -1,7 +1,4 @@
-import dotenv from "dotenv";
 import chalk from "chalk";
-
-dotenv.config();
 
 export const config = {
   openrouterApiKey: process.env.OPENROUTER_API_KEY ?? "",

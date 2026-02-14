@@ -24,6 +24,12 @@ export interface BattleResponse {
   timeMs: number;
 }
 
+export interface BattleSummary {
+  agent: AgentName;
+  summary: string;
+  isFallback: boolean;
+}
+
 export interface JudgeVerdict {
   winner: AgentName;
   scores: Record<AgentName, number>;

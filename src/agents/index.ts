@@ -32,6 +32,7 @@ export async function callOpenRouter(
   model: string,
   prompt: string,
   systemPrompt?: string,
+  maxTokens?: number,
 ): Promise<string> {
   requireApiKey();
 
@@ -46,7 +47,7 @@ export async function callOpenRouter(
     },
     body: JSON.stringify({
       model,
-      max_tokens: 1024,
+      max_tokens: maxTokens ?? 1024,
       messages: [
         {
           role: "system",

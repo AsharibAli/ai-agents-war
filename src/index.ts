@@ -4,7 +4,7 @@ import figlet from "figlet";
 import {
   showTitle,
   showBattleHeader,
-  showResponse,
+  showHeadToHead,
   showVerdict,
   showLeaderboard,
   showBattleReceipt,
@@ -14,14 +14,13 @@ import {
   ora,
 } from "./ui/index.ts";
 import { showBracket } from "./ui/bracket.ts";
-import { streamBattle } from "./ui/stream.ts";
+import { collectResponses } from "./ui/stream.ts";
 import { generateBattleReport, generateTournamentReport } from "./ui/report.ts";
 import { callAgent, AGENT_MODELS } from "./agents/index.ts";
+import { summarizeBattle } from "./agents/summarize.ts";
 import { judgeBattle } from "./battle/judge.ts";
 import { updateGameState } from "./battle/elo.ts";
 import {
-  getRandomPrompt,
-  getRandomPromptByCategory,
   getRandomPromptByCategoryAndDifficulty,
   getRandomPromptByDifficulty,
 } from "./battle/prompts.ts";
@@ -36,7 +35,6 @@ import {
   recordBattle,
   isContractDeployed,
   getContractAddress,
-  getOnChainStats,
   getOnChainLeaderboard,
 } from "./chain/index.ts";
 import { isIPFSConfigured } from "./chain/ipfs.ts";
@@ -44,6 +42,7 @@ import { requireApiKey, printKeyStatus } from "./config.ts";
 import type {
   AgentName,
   BattlePrompt,
+  BattleResponse,
   BattleResult,
   Difficulty,
   GameState,
@@ -281,81 +280,48 @@ function showVoteResult(userPick: AgentName | null, judgeWinner: AgentName): voi
 
 // ── Export report ───────────────────────────────────────────────────
 
-async function offerExportReport(result: BattleResult): Promise<void> {
-  const { doExport } = await inquirer.prompt<{ doExport: boolean }>([
-    {
-      type: "confirm",
-      name: "doExport",
-      message: "\uD83D\uDCC4 Export battle report?",
-      default: false,
-    },
-  ]);
-
-  if (doExport) {
-    const report = generateBattleReport(result, gameState.agents);
-    const dir = "./reports";
-    const fs = require("fs");
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    const filePath = `${dir}/battle-${result.id}.md`;
-    fs.writeFileSync(filePath, report);
-    console.log(chalk.green(`  Report saved to ${filePath}\n`));
-  }
+function exportReport(result: BattleResult): void {
+  const report = generateBattleReport(result, gameState.agents);
+  const dir = "./reports";
+  const fs = require("fs");
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  const filePath = `${dir}/battle-${result.id}.md`;
+  fs.writeFileSync(filePath, report);
+  console.log(chalk.green(`  📄 Report saved to ${filePath}\n`));
 }
 
-async function offerExportTournamentReport(tournament: Tournament): Promise<void> {
-  const { doExport } = await inquirer.prompt<{ doExport: boolean }>([
-    {
-      type: "confirm",
-      name: "doExport",
-      message: "\uD83D\uDCC4 Export tournament report?",
-      default: false,
-    },
-  ]);
-
-  if (doExport) {
-    const report = generateTournamentReport(tournament, gameState.agents);
-    const dir = "./reports";
-    const fs = require("fs");
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    const filePath = `${dir}/tournament-${tournament.id}.md`;
-    fs.writeFileSync(filePath, report);
-    console.log(chalk.green(`  Report saved to ${filePath}\n`));
-  }
+function exportTournamentReport(tournament: Tournament): void {
+  const report = generateTournamentReport(tournament, gameState.agents);
+  const dir = "./reports";
+  const fs = require("fs");
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  const filePath = `${dir}/tournament-${tournament.id}.md`;
+  fs.writeFileSync(filePath, report);
+  console.log(chalk.green(`  📄 Report saved to ${filePath}\n`));
 }
 
-// ── Record on chain ─────────────────────────────────────────────────
+// ── Record on chain (automatic) ─────────────────────────────────────
 
-async function offerOnChainRecording(result: BattleResult): Promise<void> {
+async function autoRecordOnChain(result: BattleResult): Promise<void> {
   if (!isContractDeployed()) {
-    console.log(chalk.gray("  Smart contract not deployed. Run: bun run deploy\n"));
+    console.log(chalk.gray("  ⛓️  Smart contract not deployed — skipping on-chain recording. Run: bun run deploy\n"));
     return;
   }
 
-  const { recordOnChain } = await inquirer.prompt<{ recordOnChain: boolean }>([
-    {
-      type: "confirm",
-      name: "recordOnChain",
-      message: "Record this battle on BNB Chain?",
-      default: false,
-    },
-  ]);
-
-  if (recordOnChain) {
-    const chainSpinner = ora("Recording on BNB Testnet...").start();
-    const chainResult = await recordBattle(result);
-    if (chainResult) {
-      chainSpinner.succeed("Recorded on-chain!");
-      showBattleReceipt(
-        chainResult.txHash,
-        chainResult.battleNumber,
-        getContractAddress(),
-        chainResult.ipfsCid,
-      );
-      result.txHash = chainResult.txHash;
-      result.ipfsCid = chainResult.ipfsCid;
-    } else {
-      chainSpinner.warn("On-chain recording skipped (see warning above).");
-    }
+  const chainSpinner = ora("Recording on BNB Testnet + IPFS...").start();
+  const chainResult = await recordBattle(result);
+  if (chainResult) {
+    chainSpinner.succeed("Recorded on-chain!");
+    showBattleReceipt(
+      chainResult.txHash,
+      chainResult.battleNumber,
+      getContractAddress(),
+      chainResult.ipfsCid,
+    );
+    result.txHash = chainResult.txHash;
+    result.ipfsCid = chainResult.ipfsCid;
+  } else {
+    chainSpinner.warn("On-chain recording failed (see warning above).");
   }
 }
 
@@ -375,12 +341,11 @@ async function runBattle(): Promise<void> {
 
   showBattleHeader(agent1, agent2, prompt);
 
-  // Stream both agents side-by-side
-  let responses;
+  // Collect responses with spinner (no live streaming)
+  let responses: [BattleResponse, BattleResponse];
   try {
-    responses = await streamBattle(agent1, agent2, prompt.prompt);
+    responses = await collectResponses(agent1, agent2, prompt.prompt);
   } catch (err) {
-    // Fallback to non-streaming
     const spinner = ora("Agents are thinking...").start();
     const results = await Promise.allSettled([
       callAgent(a1, prompt.prompt),
@@ -403,10 +368,19 @@ async function runBattle(): Promise<void> {
     }
 
     spinner.succeed("Both agents have responded!");
-    responses = [r1.value, r2.value] as [typeof r1.value, typeof r2.value];
-    showResponse(agent1, responses[0]);
-    showResponse(agent2, responses[1]);
+    responses = [r1.value, r2.value] as [BattleResponse, BattleResponse];
   }
+
+  // Summarize and display head-to-head panels
+  const summarySpinner = ora("Summarizing responses...").start();
+  const [summary1, summary2] = await summarizeBattle(responses);
+  if (summary1.isFallback || summary2.isFallback) {
+    summarySpinner.warn("Summaries ready (some used raw text fallback).");
+  } else {
+    summarySpinner.succeed("Summaries ready!");
+  }
+
+  showHeadToHead(agent1, agent2, responses[0], responses[1], summary1, summary2);
 
   // Audience vote (before judge)
   const userVote = await audienceVote(a1, a2);
@@ -440,11 +414,11 @@ async function runBattle(): Promise<void> {
 
   console.log(chalk.gray(`  ELO updated. (K=${prompt.difficulty === "easy" ? 16 : prompt.difficulty === "medium" ? 32 : 48})\n`));
 
-  // On-chain recording
-  await offerOnChainRecording(result);
+  // On-chain recording (automatic)
+  await autoRecordOnChain(result);
 
-  // Export report
-  await offerExportReport(result);
+  // Export report (automatic)
+  exportReport(result);
 }
 
 // ── Tournament flow ─────────────────────────────────────────────────
@@ -461,7 +435,6 @@ async function runTournament(): Promise<void> {
 
   showBracket(tournament, gameState.agents);
 
-  let matchIndex = 0;
   while (true) {
     const nextMatch = getNextMatch(tournament);
     if (!nextMatch) break;
@@ -482,10 +455,10 @@ async function runTournament(): Promise<void> {
 
     showBattleHeader(agent1, agent2, prompt);
 
-    // Stream battle
-    let responses;
+    // Collect responses with spinner
+    let responses: [BattleResponse, BattleResponse];
     try {
-      responses = await streamBattle(agent1, agent2, prompt.prompt);
+      responses = await collectResponses(agent1, agent2, prompt.prompt);
     } catch {
       const spinner = ora("Agents are thinking...").start();
       const results = await Promise.allSettled([
@@ -499,10 +472,19 @@ async function runTournament(): Promise<void> {
         break;
       }
       spinner.succeed("Both agents have responded!");
-      responses = [r1.value, r2.value] as [typeof r1.value, typeof r2.value];
-      showResponse(agent1, responses[0]);
-      showResponse(agent2, responses[1]);
+      responses = [r1.value, r2.value] as [BattleResponse, BattleResponse];
     }
+
+    // Summarize and display head-to-head panels
+    const summarySpinner = ora("Summarizing responses...").start();
+    const [summary1, summary2] = await summarizeBattle(responses);
+    if (summary1.isFallback || summary2.isFallback) {
+      summarySpinner.warn("Summaries ready (some used raw text fallback).");
+    } else {
+      summarySpinner.succeed("Summaries ready!");
+    }
+
+    showHeadToHead(agent1, agent2, responses[0], responses[1], summary1, summary2);
 
     // Audience vote
     const userVote = await audienceVote(nextMatch.agent1, nextMatch.agent2);
@@ -558,36 +540,28 @@ async function runTournament(): Promise<void> {
     console.log(chalk.bold.yellow(`  \uD83C\uDFC6 ${champ.displayName} \uD83C\uDFC6\n`));
   }
 
-  // Offer to record all battles on chain
+  // Record all tournament battles on chain (automatic)
   if (isContractDeployed()) {
-    const { recordAll } = await inquirer.prompt<{ recordAll: boolean }>([
-      {
-        type: "confirm",
-        name: "recordAll",
-        message: "Record tournament battles on BNB Chain?",
-        default: false,
-      },
-    ]);
-
-    if (recordAll) {
-      for (const match of tournament.matches) {
-        if (match.result) {
-          const chainSpinner = ora(`Recording match #${match.matchNumber}...`).start();
-          const chainResult = await recordBattle(match.result);
-          if (chainResult) {
-            chainSpinner.succeed(`Match #${match.matchNumber} recorded (tx: ${chainResult.txHash.slice(0, 10)}...)`);
-            match.result.txHash = chainResult.txHash;
-            match.result.ipfsCid = chainResult.ipfsCid;
-          } else {
-            chainSpinner.warn(`Match #${match.matchNumber} recording failed.`);
-          }
+    console.log(chalk.gray("  ⛓️  Recording tournament battles on BNB Chain + IPFS...\n"));
+    for (const match of tournament.matches) {
+      if (match.result) {
+        const chainSpinner = ora(`Recording match #${match.matchNumber}...`).start();
+        const chainResult = await recordBattle(match.result);
+        if (chainResult) {
+          chainSpinner.succeed(`Match #${match.matchNumber} recorded (tx: ${chainResult.txHash.slice(0, 10)}...)`);
+          match.result.txHash = chainResult.txHash;
+          match.result.ipfsCid = chainResult.ipfsCid;
+        } else {
+          chainSpinner.warn(`Match #${match.matchNumber} recording failed.`);
         }
       }
     }
+  } else {
+    console.log(chalk.gray("  ⛓️  Smart contract not deployed — skipping on-chain recording. Run: bun run deploy\n"));
   }
 
-  // Export tournament report
-  await offerExportTournamentReport(tournament);
+  // Export tournament report (automatic)
+  exportTournamentReport(tournament);
 }
 
 // ── Leaderboard menu ────────────────────────────────────────────────

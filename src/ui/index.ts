@@ -2,27 +2,22 @@ import chalk from "chalk";
 import boxen from "boxen";
 import Table from "cli-table3";
 import figlet from "figlet";
+import stringWidth from "string-width";
 import type {
   Agent,
   AgentName,
   BattlePrompt,
   BattleResponse,
+  BattleSummary,
   Difficulty,
   GameState,
   JudgeVerdict,
   VoteStats,
 } from "../types/index.ts";
 import type { OnChainStats, LeaderboardEntry } from "../chain/index.ts";
+import { colorize } from "./helpers.ts";
 
 // ── Helpers ─────────────────────────────────────────────────────────
-
-/** Apply the agent's named chalk color to text. */
-function colorize(agent: Agent, text: string): string {
-  const fn = (chalk as unknown as Record<string, unknown>)[agent.color];
-  return typeof fn === "function"
-    ? (fn as (t: string) => string)(text)
-    : text;
-}
 
 function winRate(agent: Agent): string {
   const total = agent.wins + agent.losses;
@@ -47,7 +42,7 @@ export function showTitle(): void {
   });
   console.log(chalk.red(art));
   console.log(
-    chalk.gray("  AI Agents War — 8 AI Models Battle for Supremacy\n"),
+    chalk.gray("  AI Agents War — Verified benchmark system for LLMs in a fun way\n"),
   );
 }
 
@@ -109,6 +104,72 @@ export function showResponse(agent: Agent, response: BattleResponse): void {
       borderColor: agent.color,
     }),
   );
+}
+
+// ── 4b. Head-to-Head Summary Display ────────────────────────────────
+
+function padAnsi(text: string, width: number): string {
+  const visibleWidth = stringWidth(text);
+  return text + " ".repeat(Math.max(0, width - visibleWidth));
+}
+
+export function showHeadToHead(
+  agent1: Agent,
+  agent2: Agent,
+  response1: BattleResponse,
+  response2: BattleResponse,
+  summary1: BattleSummary,
+  summary2: BattleSummary,
+): void {
+  const termWidth = process.stdout.columns || 100;
+
+  // Narrow terminal: stack vertically
+  if (termWidth < 60) {
+    showResponse(agent1, { ...response1, response: summary1.summary });
+    showResponse(agent2, { ...response2, response: summary2.summary });
+    return;
+  }
+
+  const panelWidth = Math.floor(termWidth / 2) - 3;
+  const contentWidth = panelWidth - 8; // 2 borders + 3 left padding + 3 right padding
+
+  function buildPanel(agent: Agent, response: BattleResponse, summary: BattleSummary): string {
+    const name = colorize(agent, chalk.bold(agent.displayName));
+    const time = chalk.gray(`${response.timeMs}ms`);
+    const elo = chalk.gray(`ELO ${agent.elo}`);
+    const divider = chalk.gray("\u2500".repeat(Math.min(contentWidth - 2, 40)));
+
+    return [name, `${time}  ${elo}`, divider, "", summary.summary].join("\n");
+  }
+
+  const panel1 = boxen(buildPanel(agent1, response1, summary1), {
+    padding: 1,
+    borderStyle: "round",
+    borderColor: agent1.color,
+    width: panelWidth,
+  });
+
+  const panel2 = boxen(buildPanel(agent2, response2, summary2), {
+    padding: 1,
+    borderStyle: "round",
+    borderColor: agent2.color,
+    width: panelWidth,
+  });
+
+  const lines1 = panel1.split("\n");
+  const lines2 = panel2.split("\n");
+  const maxLines = Math.max(lines1.length, lines2.length);
+
+  console.log();
+  for (let i = 0; i < maxLines; i++) {
+    const l1 = padAnsi(lines1[i] ?? "", panelWidth);
+    const l2 = lines2[i] ?? "";
+    const middle = i === Math.floor(maxLines / 2)
+      ? ` ${chalk.white.bold("VS")} `
+      : "    ";
+    console.log(`${l1}${middle}${l2}`);
+  }
+  console.log();
 }
 
 // ── 5. Verdict ──────────────────────────────────────────────────────

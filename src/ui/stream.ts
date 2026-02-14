@@ -1,4 +1,5 @@
 import chalk from "chalk";
+import ora from "ora";
 import type { Agent, AgentName, BattleResponse } from "../types/index.ts";
 import {
   AGENT_MODELS,
@@ -7,13 +8,7 @@ import {
   callAgent,
 } from "../agents/index.ts";
 import { getPersonality } from "../agents/personalities.ts";
-
-function colorize(agent: Agent, text: string): string {
-  const fn = (chalk as unknown as Record<string, unknown>)[agent.color];
-  return typeof fn === "function"
-    ? (fn as (t: string) => string)(text)
-    : text;
-}
+import { colorize } from "./helpers.ts";
 
 function wrapText(text: string, width: number): string[] {
   const lines: string[] = [];
@@ -212,4 +207,93 @@ export async function streamBattle(
     { agent: agent1.name as AgentName, response: text1, timeMs: time1 },
     { agent: agent2.name as AgentName, response: text2, timeMs: time2 },
   ];
+}
+
+// ── Spinner-based collection (no visual streaming) ───────────────────
+
+async function collectSingleResponse(
+  agent: Agent,
+  prompt: string,
+): Promise<BattleResponse> {
+  const model = AGENT_MODELS[agent.name as AgentName];
+  const personality = getPersonality(agent.name as AgentName);
+  const start = performance.now();
+  let text = "";
+  let timeMs = 0;
+
+  const finalize = () => { timeMs = Math.round(performance.now() - start); };
+
+  try {
+    await callOpenRouterStream(model, prompt, personality, {
+      onChunk: (chunk) => { text += chunk; },
+      onDone: finalize,
+      onError: () => {},
+    });
+  } catch {
+    const fallback = AGENT_FALLBACK_MODELS[agent.name as AgentName];
+    if (fallback) {
+      try {
+        text = "";
+        await callOpenRouterStream(fallback, prompt, personality, {
+          onChunk: (chunk) => { text += chunk; },
+          onDone: finalize,
+          onError: () => {},
+        });
+      } catch {
+        try {
+          const resp = await callAgent(agent.name as AgentName, prompt);
+          return resp;
+        } catch (innerErr) {
+          finalize();
+          return {
+            agent: agent.name as AgentName,
+            response: `[Error: ${innerErr instanceof Error ? innerErr.message : String(innerErr)}]`,
+            timeMs,
+          };
+        }
+      }
+    } else {
+      try {
+        const resp = await callAgent(agent.name as AgentName, prompt);
+        return resp;
+      } catch (innerErr) {
+        finalize();
+        return {
+          agent: agent.name as AgentName,
+          response: `[Error: ${innerErr instanceof Error ? innerErr.message : String(innerErr)}]`,
+          timeMs,
+        };
+      }
+    }
+  }
+
+  return { agent: agent.name as AgentName, response: text, timeMs };
+}
+
+/**
+ * Collect both agent responses in parallel with a spinner.
+ * No visual streaming — accumulates text silently.
+ */
+export async function collectResponses(
+  agent1: Agent,
+  agent2: Agent,
+  prompt: string,
+): Promise<[BattleResponse, BattleResponse]> {
+  const spinner = ora({
+    text: `${colorize(agent1, agent1.displayName)} and ${colorize(agent2, agent2.displayName)} are thinking...`,
+    spinner: "dots",
+  }).start();
+
+  try {
+    const [r1, r2] = await Promise.all([
+      collectSingleResponse(agent1, prompt),
+      collectSingleResponse(agent2, prompt),
+    ]);
+
+    spinner.succeed("Both agents have responded!");
+    return [r1, r2];
+  } catch (err) {
+    spinner.fail("One or more agents failed to respond.");
+    throw err;
+  }
 }
