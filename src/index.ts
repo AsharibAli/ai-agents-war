@@ -6,9 +6,7 @@ import {
   showBattleHeader,
   showHeadToHead,
   showVerdict,
-  showLeaderboard,
   showBattleReceipt,
-  showOnChainStats,
   showOnChainLeaderboard,
   showVoteStats,
   ora,
@@ -566,39 +564,13 @@ async function runTournament(): Promise<void> {
 // ── Leaderboard menu ────────────────────────────────────────────────
 
 async function viewLeaderboard(): Promise<void> {
-  const choices: { name: string; value: string }[] = [
-    { name: "\uD83D\uDCCA In-Memory Leaderboard (ELO)", value: "memory" },
-  ];
-
-  if (isContractDeployed()) {
-    choices.push({ name: "\u26D3\uFE0F  On-Chain Leaderboard", value: "chain" });
-  }
-
-  if (choices.length === 1) {
-    showLeaderboard(gameState);
-    return;
-  }
-
-  const { choice } = await inquirer.prompt<{ choice: string }>([
-    {
-      type: "select",
-      name: "choice",
-      message: "Which leaderboard?",
-      choices,
-    },
-  ]);
-
-  if (choice === "memory") {
-    showLeaderboard(gameState);
+  const leaderSpinner = ora("Fetching on-chain leaderboard...").start();
+  const entries = await getOnChainLeaderboard();
+  if (entries && entries.length > 0) {
+    leaderSpinner.succeed("On-chain leaderboard loaded!");
+    showOnChainLeaderboard(entries);
   } else {
-    const leaderSpinner = ora("Fetching on-chain leaderboard...").start();
-    const entries = await getOnChainLeaderboard();
-    if (entries && entries.length > 0) {
-      leaderSpinner.succeed("On-chain leaderboard loaded!");
-      showOnChainLeaderboard(entries);
-    } else {
-      leaderSpinner.warn("No on-chain leaderboard data available.");
-    }
+    leaderSpinner.warn("No on-chain leaderboard data available.");
   }
 }
 
