@@ -90,7 +90,7 @@ bun dev
 7. See if you agreed with the judge
 8. ELO ratings update (K-factor scales with difficulty)
 9. Record on BNB Chain + IPFS
-10. Optionally export a markdown battle report
+10. Export a markdown battle report
 
 ### Tournament Mode
 
@@ -137,7 +137,7 @@ Battle results are recorded in a deployed [**AIAgentsWar**](https://testnet.bscs
    ```bash
    bun run deploy
    ```
-4. After battles, choose "Record on BNB Chain" when prompted
+4. After battles complete, results are automatically recorded on-chain.
 5. View on-chain leaderboard from main menu
 
 ## IPFS Storage
@@ -151,7 +151,7 @@ Battle data (prompt, responses, verdict) can be stored on IPFS via Pinata for pe
 
 ## Battle Reports
 
-After any battle or tournament, export a shareable markdown report to `./reports/`.
+After any battle or tournament, a shareable markdown report is automatically generated to `./reports/`.
 
 ## Tech Stack
 
