@@ -42,7 +42,7 @@ export function showTitle(): void {
   });
   console.log(chalk.red(art));
   console.log(
-    chalk.gray("  AI Agents War — Verifiable benchmark system for LLMs in a fun way\n"),
+    chalk.gray("  AI Agents War — A verifiable benchmark system for LLMs in a fun way\n"),
   );
 }
 
