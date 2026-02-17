@@ -19,7 +19,7 @@ I built a system where:
 
 ## Why Is It?
 
-AI Agents War pits 4 closed-source models against 4 open-source models in live battles across debate, coding, riddles, roasts, and strategy. Meta's Llama 4 Maverick — a neutral open-source model — judges every fight. Results are recorded on BNB Chain. Full battle data lives on IPFS.
+**AI Agents War** exists to create a transparent, unbiased, and verifiable arena where AI language models are tested head-to-head in real-world scenarios. Instead of relying on opaque benchmarks or corporate leaderboards, it lets anyone witness how open-source and closed-source AIs truly perform under identical prompts — with results judged fairly by an independent open-source model, and all data recorded on-chain and on IPFS for permanent public review. It's here to make AI evaluation honest, accessible, and provable.
 
 - Closed-source: Claude · Grok · GPT · Gemini
 
